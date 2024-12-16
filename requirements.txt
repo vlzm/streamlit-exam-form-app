@@ -2,7 +2,7 @@ streamlit
 pymupdf
 pandas
 numpy
-opencv-python
+opencv-python-headless
 Pillow
 openai
 pydantic

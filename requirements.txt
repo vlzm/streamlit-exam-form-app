@@ -1,0 +1,8 @@
+streamlit
+pymupdf
+pandas
+numpy
+opencv-python
+Pillow
+openai
+pydantic

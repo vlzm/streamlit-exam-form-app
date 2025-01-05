@@ -106,6 +106,65 @@ def get_pic_from_pdf(pdf_stream, index):
     img_gray = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2GRAY)
     return img_gray
 
+def get_correct_answers(correct_answers_bytes):
+    correct_answers = pd.read_excel(correct_answers_bytes)
+    for col in correct_answers.columns:
+        if col != 'Вариант':
+            correct_answers[col] = correct_answers[col].astype(str)
+            correct_answers[col] = correct_answers[col].apply(lambda x: x.replace(',', '.'))
+            correct_answers[col] = correct_answers[col].astype(float)
+            correct_answers[col] = correct_answers[col].astype(str)
+    correct_answers['Вариант'] = correct_answers['Вариант'].astype(str)
+    correct_answers.rename(columns={1: "Правильный ответ 1", 2: "Правильный ответ 2", 3: "Правильный ответ 3", 4: "Правильный ответ 4", 5: "Правильный ответ 5", 6: "Правильный ответ 6", 7: "Правильный ответ 7", 8: "Правильный ответ 8", 9: "Правильный ответ 9", 10: "Правильный ответ 10"}, inplace=True)
+    return correct_answers
+
+def postprocess_raw_output(df_global_fin, correct_answers):
+    df_global_fin['Предмет'] = df_global_fin['Предмет'].str.upper()
+    df_global_fin['Вариант'] = df_global_fin['Вариант'].astype(int)
+    df_global_fin['Вариант'] = df_global_fin['Вариант'].astype(str)
+    for i in range(1, 11):
+        df_global_fin[f'Ответ {i}'] = df_global_fin[f'Ответ {i}'].astype(float)
+    for col in df_global_fin.columns:
+        df_global_fin[col] = df_global_fin[col].astype(str)
+
+    total_df = pd.merge(df_global_fin, correct_answers, on="Вариант", how="left")
+
+    return total_df
+
+def check_answers(total_df):
+
+    scores_dict = {
+    1: 0.5,
+    2: 1,
+    3: 1,
+    4: 1,
+    5: 1,
+    6: 1,
+    7: 1,
+    8: 1,
+    9: 1,
+    10: 1.5
+    }
+
+    for i in range(1, 11):
+        total_df[f'Верно {i}'] = (total_df[f'Правильный ответ {i}'] == total_df[f'Ответ {i}']).replace(True, 'Верно').replace(False, 'Неверно')
+        total_df[f'Начисленные баллы {i}'] = total_df[f'Верно {i}'].apply(lambda x: scores_dict[i] if x == 'Верно' else 0)
+
+    total_df['Начисленные баллы сумма'] = total_df[[f'Начисленные баллы {i}' for i in range(1, 11)]].sum(axis=1)
+
+    return total_df
+
+def final_styling(total_df):
+    reorder_cols_list = ['Предмет', 'Код участника', 'Вариант', 'Начисленные баллы сумма']
+    for i in range(1, 11):  
+        reorder_cols_list.append(f'Ответ {i}')
+        reorder_cols_list.append(f'Правильный ответ {i}')
+        reorder_cols_list.append(f'Верно {i}')
+        reorder_cols_list.append(f'Начисленные баллы {i}')
+    total_df = total_df[reorder_cols_list]
+
+    return total_df
+
 # UI Streamlit
 st.title("Распознавание экзаменационных бланков")
 st.write("Загрузите PDF файл, нажмите 'Распознать', и получите результат в формате Excel.")
@@ -113,6 +172,7 @@ st.write("Загрузите PDF файл, нажмите 'Распознать'
 api_key = st.text_input("Введите ваш OpenAI API ключ:", type="password")
 
 uploaded_pdf = st.file_uploader("Загрузите PDF файл", type=["pdf"])
+uploaded_answers = st.file_uploader("Загрузите Excel файл с правильными ответами", type=["xlsx"])
 st.write("Файл загружен, начинаем обработку...")
 
 if uploaded_pdf and api_key:
@@ -120,9 +180,14 @@ if uploaded_pdf and api_key:
         try:
             # Основной код обработки PDF
             pdf_bytes = uploaded_pdf.read()
-            st.write("Размер файла:", len(pdf_bytes))
-            if not pdf_bytes:
-                st.error("Загруженный файл пуст. Пожалуйста, выберите корректный PDF файл.")
+            st.write("Размер файла PDF:", len(pdf_bytes))
+            answers_bytes = uploaded_answers.read()
+            st.write("Размер файла Excel:", len(answers_bytes))
+            if not pdf_bytes or not answers_bytes:
+                if not pdf_bytes:
+                    st.error("Загруженный файл пуст. Пожалуйста, выберите корректный PDF файл.")
+                if not answers_bytes:
+                    st.error("Загруженный файл пуст. Пожалуйста, выберите корректный Excel файл с правильными ответами.")
             else:
                 pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
                 num_pages = pdf_document.page_count
@@ -136,10 +201,14 @@ if uploaded_pdf and api_key:
                     parsed_json = extract_text_from_image(api_key, cur_pic)
                     df_current = transform_json_to_dataframe(parsed_json)
                     df_global = pd.concat([df_global, df_current]).reset_index(drop=True)
+                correct_answers = get_correct_answers(answers_bytes)
+                df_global_processed = postprocess_raw_output(df_global, correct_answers)
+                df_global_answers = check_answers(df_global_processed)
+                df_global_styled = final_styling(df_global_answers)
 
                 # Сохранение результатов в Excel
                 output = BytesIO()
-                df_global.to_excel(output, index=False, sheet_name="Результаты")
+                df_global_styled.to_excel(output, index=False, sheet_name="Результаты")
                 output.seek(0)
 
                 # Добавление имени файла

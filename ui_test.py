@@ -17,6 +17,8 @@ from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Alignment, Border, Side, Font
 
+from form_class import Form
+
 promt = """"You are tasked with extracting information from an image of a completed exam answer sheet and converting it into a structured JSON format. The answer sheet has the following structure:
 
 Top Section:
@@ -137,7 +139,7 @@ def extract_text_from_image(api_key, image, prompt):
     json_response = json.loads(response.choices[0].message.content)
     return json_response
 
-def get_pic_from_pdf(pdf_stream, index):
+def get_pic_from_pdf(pdf_stream, index, zoom=1.5):
     """
     Получает изображение страницы из PDF
     :param pdf_stream: поток PDF файла
@@ -147,7 +149,8 @@ def get_pic_from_pdf(pdf_stream, index):
     # Открываем PDF из байтового потока
     pdf_document = fitz.open(stream=pdf_stream, filetype="pdf")
     page = pdf_document.load_page(index)  # Загружаем страницу
-    pix = page.get_pixmap()  # Преобразуем страницу в изображение
+    mat = fitz.Matrix(zoom, zoom)  # Матрица для увеличения изображения
+    pix = page.get_pixmap(matrix=mat)  # Преобразуем страницу в изображение
     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
     img_gray = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2GRAY)
     return img_gray
@@ -177,24 +180,6 @@ def postprocess_raw_output(df_global_fin, correct_answers):
     total_df = pd.merge(df_global_fin, correct_answers, on="Вариант", how="left")
 
     return total_df
-
-def run_pipeline(pdf_path, answers_path,api_key):
-    pdf_document = fitz.open(pdf_path)
-    num_pages = pdf_document.page_count
-
-    df_global = pd.DataFrame()
-    for i in range(num_pages):
-        cur_pic = get_pic_from_pdf(pdf_path, i)
-        parsed_json = extract_text_from_image(api_key, cur_pic, promt)
-        df_current = transform_json_to_dataframe(parsed_json)
-        df_global = pd.concat([df_global, df_current]).reset_index(drop=True)
-
-    correct_answers = get_correct_answers(answers_path)
-    df_global_processed = postprocess_raw_output(df_global, correct_answers)
-    df_global_answers = check_answers(df_global_processed)
-    df_global_styled = final_styling(df_global_answers)
-    
-    return df_global_styled
 
 class ResearchPaperExtraction(BaseModel):
     subject_name: str
@@ -361,6 +346,7 @@ if uploaded_pdf and api_key:
             pdf_bytes = uploaded_pdf.read()
             st.write("Размер файла PDF:", len(pdf_bytes))
             answers_bytes = uploaded_answers.read()
+            answers = pd.read_excel(answers_bytes)
             st.write("Размер файла Excel:", len(answers_bytes))
             if not pdf_bytes or not answers_bytes:
                 if not pdf_bytes:
@@ -377,7 +363,13 @@ if uploaded_pdf and api_key:
                 for i in range(num_pages):
                     st.write(f"Обрабатываем страницу {i + 1}...")
                     cur_pic = get_pic_from_pdf(pdf_bytes, i)
-                    parsed_json = extract_text_from_image(api_key, cur_pic, promt)
+                    form = Form()
+                    cur_pic_adjusted = form.run_pipeline(
+                        image = cur_pic,
+                        template_path = "template.jpg",
+                        json_path = "rows_data.json",
+                        answers = answers)                   
+                    parsed_json = extract_text_from_image(api_key, cur_pic_adjusted, promt)
                     df_current = transform_json_to_dataframe(parsed_json)
                     df_global = pd.concat([df_global, df_current]).reset_index(drop=True)
                 correct_answers = get_correct_answers(answers_bytes)

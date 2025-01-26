@@ -275,7 +275,7 @@ class Form:
         form.load_correct_answers(answers)
         form.load_image(image)
         form.load_template(template_path)
-        form.align_form(scale_factor = 0.3)
+        form.align_form(scale_factor = 0.5)
         form.remove_cells_lines()
         form.get_symbals_from_image()
         form.get_sybmol_row()
@@ -322,7 +322,7 @@ def rebuild_row_image(row_obj, original_image):
         for sym in cell.symbols:
             sx, sy, sw, sh = int(sym.x), int(sym.y), int(sym.w), int(sym.h)
             # Вырез символа:
-            sym_img = cell_img[sy:sy+sh, sx:sx+sw]
+            sym_img = cell_img[sy:sy+sh, sx:sx+sw + 15]
             
             # Координата Y в глобальной системе row'а:
             # т.к. sy - локальная внутри cell, надо сложить с cell_y, чтобы получить глобальную.

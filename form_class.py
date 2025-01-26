@@ -322,7 +322,7 @@ def rebuild_row_image(row_obj, original_image):
         for sym in cell.symbols:
             sx, sy, sw, sh = int(sym.x), int(sym.y), int(sym.w), int(sym.h)
             # Вырез символа:
-            sym_img = cell_img[sy:sy+sh, sx:sx+sw + 15]
+            sym_img = cell_img[sy:sy+sh, sx:sx+sw + 5]
             
             # Координата Y в глобальной системе row'а:
             # т.к. sy - локальная внутри cell, надо сложить с cell_y, чтобы получить глобальную.

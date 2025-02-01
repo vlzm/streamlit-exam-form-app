@@ -1,4 +1,4 @@
 .venv/
 __pycache__/
+.devcontainer/devcontainer.json
 blank_functions.egg-info/
-.devcontainer/

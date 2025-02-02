@@ -19,8 +19,8 @@ from openpyxl.styles import Alignment, Border, Side, Font
 
 from blank_functions.form_class import Form
 
-from blank_functions.ui_functions import get_pic_from_pdf, save_to_excel, get_correct_answers, postprocess_raw_output, check_answers, final_styling, extract_text_from_image, transform_json_to_dataframe
-from blank_functions.ui_functions import promt
+from blank_functions.ui.ui_functions import get_pic_from_pdf, save_to_excel, get_correct_answers, postprocess_raw_output, check_answers, final_styling, extract_text_from_image, transform_json_to_dataframe
+from blank_functions.ui.ui_functions import promt
 
 # UI Streamlit
 st.title("Распознавание экзаменационных бланков")

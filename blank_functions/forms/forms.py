@@ -25,6 +25,7 @@ class Form:
             setattr(self, row_name, Row(row_name))
         
         self.image = None
+        self.raw_image = None
         self.template = None
         self.answer_minus_list = []
         self.correction_minus_list = []
@@ -119,6 +120,7 @@ class Form:
 
     def load_image(self, image):
         self.image = image
+        self.raw_image = image.copy()
     
     def load_template(self, template_path):
         self.template = cv2.imread(template_path)
@@ -126,6 +128,7 @@ class Form:
     def align_form(self, scale_factor = 0.25):
         aligned_image = align_image_pipeline(self.image, self.template, scale_factor)
         self.image = aligned_image.copy()
+        self.raw_image = aligned_image.copy()
     
     def recalculate_cells(self):
         for row_name in self.ROW_NAMES:
@@ -339,7 +342,6 @@ class Form:
             cell6.user_value = ','
 
         if np.sum(cell7_image) == 0 and np.sum(cell6_image) > 0 and np.sum(cell8_image) > 0:
-            print('here 1')
             cell7.user_value = ','
 
 
@@ -351,11 +353,32 @@ class Form:
 
     def get_correct_commas(self):
         for i in range(1, 11):
-            print('answer row', i)
             self.process_row_commas(getattr(self, f"answer{i}"))
         for i in range(1, 11):
-            print('correction row', i)
             self.process_row_commas(getattr(self, f"correction{i}"))
+
+    def get_row_image(self, answer):
+        row_images = list()
+        for cell, i in zip(answer.cells, range(1, 11)):
+            if i <=5:
+                x, y, w, h = cell.x, cell.y, cell.w, cell.h
+                cell_image = self.raw_image[y:y+h, x:x+w]
+                row_images.append(cell_image)
+        # объединить изображения в одно
+        row_image = np.concatenate(row_images, axis=1)
+        row_image = cv2.resize(row_image, (64, 16), interpolation=cv2.INTER_AREA)
+        return row_image
+
+    def set_row_images(self):
+        for row in ["user_id", "version"]:
+            getattr(self, row).row_image = self.get_row_image(getattr(self, row))
+        for j in range(1, 11):
+            answer_row = getattr(self, f"answer{j}")
+            correction_row = getattr(self, f"correction{j}")
+            answer_row.row_image = self.get_row_image(answer_row)
+            correction_row.row_image = self.get_row_image(correction_row)
+            if correction_row.cells[0].user_value != None:
+                answer_row.row_image = correction_row.row_image.copy()
 
 
 

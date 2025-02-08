@@ -73,22 +73,11 @@ def deskew_image(image):
     return deskewed
 
 def predict_digit(image, labels):
-    # Обрабатываем изображение и текстовые метки.
-    # Процессор создаст словарь с ключом "pixel_values" для изображения и "input_ids"/"attention_mask" для текста.
-    # resize image to 224x224
-    # image = cv2.resize(image, (32, 32))
-    # rotate image
-    # image = rotate_image(image, 15)
     if np.sum(image) == 0:
         return None, image
     
     kernel = np.ones((3,3), np.uint8)
     image = cv2.erode(image, kernel, iterations=1)
-    # image = deskew_image(image)
-    # image = cv2.resize(image, (28, 28))
-    plt.figure(figsize=(1, 1))
-    plt.imshow(image, cmap='gray')
-    plt.show()
 
     inputs = processor(text=labels, images=image, return_tensors="pt", padding=True).to(device)
 

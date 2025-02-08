@@ -15,7 +15,7 @@ import pandas as pd
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Alignment, Border, Side, Font
-
+import io
 from blank_functions.forms.form_recognition import FormRecognition
 
 promt = """"You are tasked with extracting information from an image of a completed exam answer sheet and converting it into a structured JSON format. The answer sheet has the following structure:
@@ -190,14 +190,17 @@ def postprocess_raw_output(df_global_fin, correct_answers):
     df_global_fin['Вариант'] = df_global_fin['Вариант'].astype(int)
     df_global_fin['Вариант'] = df_global_fin['Вариант'].astype(str)
     for i in range(1, 11):
-        df_global_fin[f'Задание {i}'] = df_global_fin[f'Задание {i}'].astype(float)
-        df_global_fin[f'Замена {i}'] = df_global_fin[f'Замена {i}'].astype(float)
+        df_global_fin[f'Задание {i}'] = df_global_fin[f'Задание {i}'].replace(',', '.', regex=True)
+        df_global_fin[f'Задание {i}'] = df_global_fin[f'Задание {i}'].replace('', 'nan').astype(float)
+        df_global_fin[f'Замена {i}'] = df_global_fin[f'Замена {i}'].replace(',', '.', regex=True)
+        df_global_fin[f'Замена {i}'] = df_global_fin[f'Замена {i}'].replace('', 'nan').astype(float)
     for col in df_global_fin.columns:
         df_global_fin[col] = df_global_fin[col].astype(str)
 
     total_df = pd.merge(df_global_fin, correct_answers, on="Вариант", how="left")
 
     return total_df
+
 
 class ResearchPaperExtraction(BaseModel):
     subject_name: str
@@ -386,7 +389,7 @@ def final_styling(total_df):
     for i in range(1, 11):  
         reorder_cols_list.append(f'Задание {i}')
         reorder_cols_list.append(f'Замена {i}')
-        reorder_cols_list.append(f'Картинка ответа {i}')
+        # reorder_cols_list.append(f'Картинка ответа {i}')
 
     for i in range(1, 11):
         reorder_cols_list.append(f'Начисленные баллы {i}')
@@ -402,7 +405,7 @@ def final_styling(total_df):
 
     return total_df
 
-def save_to_excel(df_global_styled, file_name="Formatted_Data.xlsx"):
+def save_to_excel_last(df_global_styled, file_name="Formatted_Data.xlsx"):
     columns = ["Предмет", "Код участника", "Вариант", "Задание 1", "Картинка ответа 1", "Задание 2", "Картинка ответа 2", "Задание 3", "Картинка ответа 3", "Задание 4", "Картинка ответа 4", "Задание 5", "Картинка ответа 5", "Задание 6", "Картинка ответа 6", "Задание 7", "Картинка ответа 7", "Задание 8", "Картинка ответа 8", "Задание 9", "Картинка ответа 9", "Задание 10", "Картинка ответа 10", "Начисленные баллы 1", "Начисленные баллы 2", "Начисленные баллы 3", "Начисленные баллы 4", "Начисленные баллы 5", "Начисленные баллы 6", "Начисленные баллы 7", "Начисленные баллы 8", "Начисленные баллы 9", "Начисленные баллы 10"]
 
     # Save to Excel with formatting
@@ -450,3 +453,161 @@ def save_to_excel(df_global_styled, file_name="Formatted_Data.xlsx"):
     wb.save(output)
     output.seek(0)
     return output
+
+
+def save_to_excel_simple(df_global_styled, file_name="Formatted_Data.xlsx"):
+    columns = ["Предмет", "Код участника", "Вариант", "Задание 1", "Задание 2", "Задание 3", "Задание 4", "Задание 5", "Задание 6", "Задание 7", "Задание 8", "Задание 9", "Задание 10", "Начисленные баллы 1", "Начисленные баллы 2", "Начисленные баллы 3", "Начисленные баллы 4", "Начисленные баллы 5", "Начисленные баллы 6", "Начисленные баллы 7", "Начисленные баллы 8", "Начисленные баллы 9", "Начисленные баллы 10"]
+
+    # Save to Excel with formatting
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Общая таблица"
+
+    # Write the subheader
+    ws.append(columns)
+
+    # Write the data
+    for row in dataframe_to_rows(df_global_styled, index=False, header=False):
+        ws.append(row)
+
+    # Align headers
+    for cell in ws[1]:
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Create a border for the entire dataframe
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+        for cell in row:
+            cell.border = thin_border
+
+    # Make the first three rows bold
+    for row in ws.iter_rows(min_row=1, max_row=3):
+        for cell in row:
+            cell.font = Font(bold=True)
+
+    # Save to a BytesIO object
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    # Save the BytesIO object to a file for verification
+    with open(f"{file_name}", "wb") as f:
+        f.write(output.getbuffer())
+    return output
+
+def save_to_excel_local(df_global_styled, form_dict):
+    with pd.ExcelWriter('output_with_images.xlsx', engine='xlsxwriter') as writer:
+        # Сохраняем сам DataFrame на лист (например, Sheet1)
+        df_global_styled.to_excel(writer, sheet_name='Sheet1', index=False)
+        
+        # Получаем объект worksheet, чтобы работать с картинками
+        workbook  = writer.book
+        worksheet = writer.sheets['Sheet1']
+
+
+        # Теперь итерируемся по строкам DF
+        for row_idx in range(len(df_global_styled)):
+            form = form_dict[row_idx]
+            excel_row = row_idx + 1
+            
+            excel_col = df_global_styled.columns.get_loc(f'Картинка код участника')
+            img_data = io.BytesIO()
+            img = Image.fromarray(getattr(form, 'user_id').row_image)
+            img.save(img_data, format='PNG')
+            img_data.seek(0)  # переходим в начало буфера
+            
+            worksheet.insert_image(
+                excel_row, 
+                excel_col,
+                "some_name.png", 
+                {'image_data': img_data}
+            )
+
+            excel_col = df_global_styled.columns.get_loc(f'Картинка вариант')
+            img_data = io.BytesIO()
+            img = Image.fromarray(getattr(form, 'version').row_image)
+            img.save(img_data, format='PNG')
+            img_data.seek(0)  # переходим в начало буфера
+
+            worksheet.insert_image(
+                excel_row, 
+                excel_col,
+                "some_name.png", 
+                {'image_data': img_data}
+            )
+            
+            for i in range(1, 11):
+                excel_col = df_global_styled.columns.get_loc(f'Картинка ответа {i}')
+                img_data = io.BytesIO()
+                img = Image.fromarray(getattr(form, f'answer{i}').row_image)
+                img.save(img_data, format='PNG')
+                img_data.seek(0)  # переходим в начало буфера
+                
+                worksheet.insert_image(
+                    excel_row, 
+                    excel_col,
+                    "some_name.png", 
+                    {'image_data': img_data}
+                )
+
+
+def save_to_excel(df_global_styled, form_dict):
+    output = io.BytesIO()
+    
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df_global_styled.to_excel(writer, sheet_name='Sheet1', index=False)
+
+        workbook = writer.book
+        worksheet = writer.sheets['Sheet1']
+
+        for row_idx in range(len(df_global_styled)):
+            form = form_dict[row_idx]
+            excel_row = row_idx + 1
+
+            # Вставка изображений
+            columns = [
+                ('Картинка код участника', 'user_id'),
+                ('Картинка вариант', 'version')
+            ] + [(f'Картинка ответа {i}', f'answer{i}') for i in range(1, 11)]
+
+            for col_name, attr_name in columns:
+                excel_col = df_global_styled.columns.get_loc(col_name)
+                img_data = io.BytesIO()
+                img = Image.fromarray(getattr(form, attr_name).row_image)
+                img.save(img_data, format='PNG')
+                img_data.seek(0)
+
+                worksheet.insert_image(
+                    excel_row,
+                    excel_col,
+                    "some_name.png",
+                    {'image_data': img_data}
+                )
+
+        writer.close()
+
+    output.seek(0)
+    return output
+
+
+
+def reorder_cols(df_global_styled):
+    df_global_styled[f'Картинка код участника'] = ''
+    df_global_styled[f'Картинка вариант'] = ''
+    
+    for i in range(1, 11):
+        df_global_styled[f'Картинка ответа {i}'] = ''
+
+
+    reorder_cols_list = ['Предмет', 'Код участника', 'Картинка код участника', 'Вариант', 'Картинка вариант']
+    for i in range(1, 11):  
+        reorder_cols_list.append(f'Задание {i}')
+        reorder_cols_list.append(f'Картинка ответа {i}')
+
+    for i in range(1, 11):
+        reorder_cols_list.append(f'Начисленные баллы {i}')
+
+    reorder_cols_list.append('Начисленные баллы сумма')
+
+    df_global_styled = df_global_styled[reorder_cols_list]
+    return df_global_styled

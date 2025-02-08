@@ -24,7 +24,7 @@ class FormRecognition:
         form.style_image()
         form.load_correct_answers(self.answers)  # Load correct answers from answers excel
         form.get_user_answers_pipeline()
-
+        form.set_row_images()
 
 
 

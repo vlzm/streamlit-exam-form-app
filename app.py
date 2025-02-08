@@ -17,21 +17,20 @@ from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Alignment, Border, Side, Font
 
-from blank_functions.form_class import Form
-
+from blank_functions.forms.form_recognition import FormRecognition
 from blank_functions.ui.ui_functions import get_pic_from_pdf, save_to_excel, get_correct_answers, postprocess_raw_output, check_answers, final_styling, extract_text_from_image, transform_json_to_dataframe
-from blank_functions.ui.ui_functions import promt
+from blank_functions.ui.ui_functions import promt, prepare_cur_dict, reorder_cols
+
 
 # UI Streamlit
 st.title("Распознавание экзаменационных бланков")
 st.write("Загрузите PDF файл, нажмите 'Распознать', и получите результат в формате Excel.")
 
-api_key = st.text_input("Введите ваш OpenAI API ключ:", type="password")
-
+cur_version = st.text_input("Введите номер варианта", type="default")
 uploaded_pdf = st.file_uploader("Загрузите PDF файл", type=["pdf"])
 uploaded_answers = st.file_uploader("Загрузите Excel файл с правильными ответами", type=["xlsx"])
 
-if uploaded_pdf and api_key:
+if uploaded_pdf and cur_version:
     if st.button("Распознать"):
         try:
             # Основной код обработки PDF
@@ -46,36 +45,35 @@ if uploaded_pdf and api_key:
                 if not answers_bytes:
                     st.error("Загруженный файл пуст. Пожалуйста, выберите корректный Excel файл с правильными ответами.")
             else:
+                cur_version = int(cur_version)
                 pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
                 num_pages = pdf_document.page_count
                 st.write("Количество страниц:", pdf_document.page_count)
 
                 df_global = pd.DataFrame()
-
-                for i in range(num_pages):
-                    st.write(f"Обрабатываем страницу {i + 1}...")
-                    cur_pic = get_pic_from_pdf(pdf_bytes, i)
-                    form = Form()
-                    form = form.run_pipeline(
+                form_dict = {}
+                for i in range(0, num_pages):
+                    cur_pic = get_pic_from_pdf(pdf_bytes, i, zoom=6.0)
+                    form = FormRecognition(
                         image = cur_pic,
-                        template_path = "template.jpg",
-                        json_path = "rows_data.json",
-                        answers = answers)  
-                    cur_pic_adjusted = form.image
-                    answer_minus_list = form.answer_minus_list
-                    correction_minus_list = form.correction_minus_list
-                    parsed_json = extract_text_from_image(api_key, cur_pic_adjusted, promt)
-                    df_current = transform_json_to_dataframe(parsed_json, answer_minus_list, correction_minus_list, form.answer1.row_image)
+                        template_path = 'template.jpg',
+                        json_path = 'rows_data.json',
+                        answers = answers,
+                        version = cur_version)
+
+                    form = form.run_pipeline()
+                    cur_dict = prepare_cur_dict(form)
+                    df_current = transform_json_to_dataframe(cur_dict)
                     df_global = pd.concat([df_global, df_current]).reset_index(drop=True)
+                    form_dict[i] = form
+
                 correct_answers = get_correct_answers(answers_bytes)
                 df_global_processed = postprocess_raw_output(df_global, correct_answers)
                 df_global_answers = check_answers(df_global_processed)
                 df_global_styled = final_styling(df_global_answers)
-                temp_df = pd.DataFrame([['Предмет', 'Код участника', 'Вариант', "Задание 1", "Картинка ответа 1", "Задание 2", "Картинка ответа 2", "Задание 3", "Картинка ответа 3", "Задание 4", "Картинка ответа 4", "Задание 5", "Картинка ответа 5", "Задание 6", "Картинка ответа 6", "Задание 7", "Картинка ответа 7", "Задание 8", "Картинка ответа 8", "Задание 9", "Картинка ответа 9", "Задание 10", "Картинка ответа 10", 0.5, 1, 1, 1, 1, 1, 1, 1, 1, 1.5, 10]], columns=df_global_styled.columns)
-                temp_df.columns = df_global_styled.columns
-                df_global_styled = pd.concat([temp_df, df_global_styled], ignore_index=True)
-                
-                excel_data = save_to_excel(df_global_styled)
+                df_global_styled = reorder_cols(df_global_styled)
+                excel_data = save_to_excel(df_global_styled, form_dict)
+              
 
                 # Добавление имени файла
                 st.success("Распознавание завершено!")

@@ -10,3 +10,4 @@ openpyxl
 matplotlib
 scikit-image
 transformers
+torch

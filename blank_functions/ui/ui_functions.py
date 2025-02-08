@@ -271,52 +271,84 @@ class ResearchPaperExtraction(BaseModel):
 #   df.rename(columns=rename_dict, inplace=True)
 #   return df
 
-def transform_json_to_dataframe(parsed_json, answer_minus_list, correction_minus_list):
-  df = pd.DataFrame([parsed_json])
-  order = ['subject_name', 'participant_code', 'version_number', 'answer_1', 'answer_2', 'answer_3', 'answer_4', 'answer_5', 'answer_6', 'answer_7', 'answer_8', 'answer_9', 'answer_10', 'correction_1', 'correction_2', 'correction_3', 'correction_4', 'correction_5', 'correction_6', 'correction_7', 'correction_8', 'correction_9', 'correction_10']
-  df = df[order]
-  rename_dict = {
-    'subject_name': 'Предмет',
-    'participant_code': 'Код участника',
-    'version_number': 'Вариант',
-    'answer_1': 'Задание 1',
-    'answer_2': 'Задание 2',
-    'answer_3': 'Задание 3',
-    'answer_4': 'Задание 4',
-    'answer_5': 'Задание 5',
-    'answer_6': 'Задание 6',
-    'answer_7': 'Задание 7',
-    'answer_8': 'Задание 8',
-    'answer_9': 'Задание 9',
-    'answer_10': 'Задание 10',
-    'correction_1': 'Замена 1',
-    'correction_2': 'Замена 2',
-    'correction_3': 'Замена 3',
-    'correction_4': 'Замена 4',
-    'correction_5': 'Замена 5',
-    'correction_6': 'Замена 6',
-    'correction_7': 'Замена 7',
-    'correction_8': 'Замена 8',
-    'correction_9': 'Замена 9',
-    'correction_10': 'Замена 10',
-    'row_image_1': 'Картинка ответа 1',
-    'row_image_2': 'Картинка ответа 2',
-    'row_image_3': 'Картинка ответа 3',
-    'row_image_4': 'Картинка ответа 4',
-    'row_image_5': 'Картинка ответа 5',
-    'row_image_6': 'Картинка ответа 6',
-    'row_image_7': 'Картинка ответа 7',
-    'row_image_8': 'Картинка ответа 8',
-    'row_image_9': 'Картинка ответа 9',
-    'row_image_10': 'Картинка ответа 10'
-  }
-  
-  for i in range(1, 11):
-      df[f'answer_{i}'] = df[f'answer_{i}'].apply(lambda x: float(x) if x != None else None)
-      df[f'correction_{i}'] = df[f'correction_{i}'].apply(lambda x: float(x) if x != None else None)
-    #   df[f'row_image_{i}'] = [row_image]
-  df.rename(columns=rename_dict, inplace=True)
-  return df
+def transform_json_to_dataframe(parsed_json):
+    df = pd.DataFrame(parsed_json, index=[0])
+    order = ['subject', 'user_id', 'version', 'answer1', 'answer2', 'answer3', 'answer4', 'answer5', 'answer6', 'answer7', 'answer8', 'answer9', 'answer10', 'correction1', 'correction2', 'correction3', 'correction4', 'correction5', 'correction6', 'correction7', 'correction8', 'correction9', 'correction10']
+    df = df[order]
+
+    rename_dict = {
+    'subject': 'Предмет',
+    'user_id': 'Код участника',
+    'version': 'Вариант',
+    'answer1': 'Задание 1',
+    'answer2': 'Задание 2',
+    'answer3': 'Задание 3',
+    'answer4': 'Задание 4',
+    'answer5': 'Задание 5',
+
+    'answer6': 'Задание 6',
+    'answer7': 'Задание 7',
+    'answer8': 'Задание 8',
+    'answer9': 'Задание 9',
+    'answer10': 'Задание 10',
+    'correction1': 'Замена 1',
+    'correction2': 'Замена 2',
+    'correction3': 'Замена 3',
+
+    'correction4': 'Замена 4',
+    'correction5': 'Замена 5',
+    'correction6': 'Замена 6',
+    'correction7': 'Замена 7',
+    'correction8': 'Замена 8',
+    'correction9': 'Замена 9',
+    'correction10': 'Замена 10',
+
+    'row_image1': 'Картинка ответа 1',
+    'row_image2': 'Картинка ответа 2',
+    'row_image3': 'Картинка ответа 3',
+    'row_image4': 'Картинка ответа 4',
+    'row_image5': 'Картинка ответа 5',
+    'row_image6': 'Картинка ответа 6',
+
+    'row_image7': 'Картинка ответа 7',
+    'row_image8': 'Картинка ответа 8',
+    'row_image9': 'Картинка ответа 9',
+    'row_image10': 'Картинка ответа 10'
+
+    }
+
+    df.rename(columns=rename_dict, inplace=True)
+    return df
+
+def prepare_cur_dict(form_dict):
+    cur_dict = {}
+    for row_name in ["subject", "user_id", "version"]:
+        row = getattr(form_dict, row_name)
+        user_answers = row.user_answers
+        cur_dict[row_name] = user_answers
+
+    for row_name in [f"answer{i}" for i in range(1, 11)]:
+        row = getattr(form_dict, row_name)
+        user_answers = row.user_answers
+        cur_dict[row_name] = user_answers
+
+
+    for row_name in [f"correction{i}" for i in range(1, 11)]:
+        row = getattr(form_dict, row_name)
+        user_answers = row.user_answers
+        cur_dict[row_name] = user_answers
+
+
+    for key in ["user_id", "version"] + [f"answer{i}" for i in range(1, 11)] + [f"correction{i}" for i in range(1, 11)]:
+        cur_dict[key] = "".join([x for x in cur_dict[key] if x is not None])
+
+    # for key in [f"answer{i}" for i in range(1, 11)] + [f"correction{i}" for i in range(1, 11)]:
+    #     if cur_dict[key] != '':
+    #         cur_dict[key] = str(float(cur_dict[key].replace(',', '.')))
+
+    cur_dict['subject'] = 'МАТЕМАТИКА'
+
+    return cur_dict
 
 def check_answers(total_df):
 

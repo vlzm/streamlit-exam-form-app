@@ -345,7 +345,7 @@ def draw_white_borders(image, cells):
     for (x, y, w, h) in cells:
         scale = 10
         scale_2 = 10
-        scale_3 = 3
+        scale_3 = 10
         scale_4 = 10
         image[y - scale : y + scale_3, x - scale_2 : x + w + scale_2] = 255  # lower horizontal line
         image[y + h - scale_3 : y + h + scale, x - scale_2 : x + w + scale_2] = 255  # upper horizontal line
@@ -361,12 +361,60 @@ def denoise_cells(image, cells):
     for (x, y, w, h) in cells:
         cell_roi = image[y:y+h, x:x+w]
         _, cell_bin = cv2.threshold(cell_roi, 245, 255, cv2.THRESH_BINARY_INV)
-        local_kernel = np.ones((3, 3), np.uint8)
-        eroded = cv2.erode(cell_bin, local_kernel, iterations=1)
-        denoised = cv2.medianBlur(eroded, 9)
-        denoised = cv2.GaussianBlur(denoised, (9, 9), 0)
-        image[y:y+h, x:x+w] = denoised
+        # local_kernel = np.ones((3, 3), np.uint8)
+        # eroded = cv2.erode(cell_bin, local_kernel, iterations=1)
+        # denoised = cv2.medianBlur(eroded, 9)
+        # denoised = cv2.GaussianBlur(eroded, (1, 1), 0)
+        # denoised = cv2.GaussianBlur(cell_bin, (3, 3), 0)
+
+        # image = 255 - image
+        kernel = np.ones((3,3), np.uint8)
+        opened = cv2.morphologyEx(cell_bin, cv2.MORPH_OPEN, kernel)
+        opened = cv2.GaussianBlur(opened, (3, 3), 0)
+        eroded = cv2.erode(opened, kernel, iterations=1)
+        image[y:y+h, x:x+w] = eroded
+
     return image
+
+def detect_symbol(image, cells):
+    for (x, y, w, h) in cells:
+        # print('here 1')
+        img_cell = image[y:y+h, x:x+w]
+        # plt.imshow(img_cell, cmap='gray')
+        # plt.show()
+        image_inv = img_cell
+        # plt.imshow(image_inv, cmap='gray')
+        # plt.show()
+        _, thresh = cv2.threshold(image_inv, 10, 255, cv2.THRESH_BINARY)
+        # plt.imshow(thresh, cmap='gray')
+        # plt.show()
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+
+
+        if len(contours) > 0:
+            max_contour = max(contours, key=cv2.contourArea)
+            x_contour, y_contour, w_contour, h_contour = cv2.boundingRect(max_contour)
+            if h_contour > 0.4*h:
+                pad = 2
+                img_symbol = img_cell[y_contour-pad:y_contour+h_contour+pad, x_contour-pad:x_contour+w_contour+pad]
+                img_symbol = cv2.resize(img_symbol, (w, h))
+
+                image[y:y+h, x:x+w] = img_symbol
+                # print('here 2')
+                # plt.imshow(img_symbol, cmap='gray')
+                # plt.show()
+            else:
+                image[y:y+h, x:x+w] = 0	
+        else:
+            image[y:y+h, x:x+w] = 0	
+
+
+
+
+
+    return image
+
 
 
 # def align_image_pipeline(image, template, scale_factor = 0.25):
@@ -541,13 +589,14 @@ def style_image(aligned_image, cells, debug=True):
     # plt.show()
     
     # 8. Применяем денойзинг для улучшения качества выделения клеток
-    processed_image = denoise_cells(aligned_image, cells)
+    processed_image = denoise_cells(processed_image, cells)
+    processed_image = detect_symbol(processed_image, cells)
 
-    if debug:
-        plt.figure(figsize=(10, 20))
-        plt.imshow(processed_image, cmap='gray')
-        plt.title("styled image")
-        plt.axis("off")
-        plt.show()
+    # if debug:
+    #     plt.figure(figsize=(10, 20))
+    #     plt.imshow(processed_image, cmap='gray')
+    #     plt.title("styled image")
+    #     plt.axis("off")
+    #     plt.show()
     
     return processed_image

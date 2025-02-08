@@ -1,9 +1,10 @@
 from blank_functions.forms.rows import Row
 import cv2
+import numpy as np
 import json
 from blank_functions.utils.image_processing import place_row_image_into_form, align_image_pipeline, recalculate_cell, style_image
-
-
+from blank_functions.forms.model import predict_digit
+import matplotlib.pyplot as plt
 class Form:
     # Определяем все названия строк, которые хотим использовать
     ROW_NAMES = (
@@ -75,12 +76,16 @@ class Form:
         # Append correct answers and update cell values
         for i in range(1, 11):
             answer_attr = getattr(self, f'answer{i}')
+            correction_attr = getattr(self, f'correction{i}')
             correct_answer = answers.iloc[0, i]
             answer_attr.correct_answers.append(correct_answer)
+            correction_attr.correct_answers.append(correct_answer)
             
+
             answers_cells = self.number_to_list(correct_answer)
             for j, cell_value in enumerate(answers_cells):
-                answer_attr.cells[j].value = cell_value
+                answer_attr.cells[j].correct_value = cell_value
+                correction_attr.cells[j].correct_value = cell_value
 
     def get_symbals_from_image(self):
         image = self.image
@@ -180,6 +185,181 @@ class Form:
                     self.correction_minus_list.append(1)
             else:
                 self.correction_minus_list.append(1)
+
+    def get_user_answers(self):
+        for row_name in self.ROW_NAMES:
+            for cell in getattr(self, row_name).cells:
+                x, y, w, h = cell.x, cell.y, cell.w, cell.h
+                cell_image = self.image[y:y+h, x:x+w]
+                cell_image = cv2.cvtColor(cell_image, cv2.COLOR_BGR2RGB)
+                predicted_digit, cell_pred_input = predict_digit(cell_image, ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"])
+                cell.user_value = predicted_digit
+                cell.cell_pred_input = cell_pred_input
+    
+
+    def get_user_answers_pipeline(self):
+        self.get_user_answers()
+        self.check_digits_and_replace()
+        self.get_empty_cells()
+        # plt.imshow(self.image)
+        # plt.show()
+        self.get_correct_minuses()
+        self.get_correct_commas()
+        self.get_user_answers_rows()
+
+
+
+    def check_digits_and_replace(self):
+        for i in range(1, 11):
+            answer_row = getattr(self, f"answer{i}")
+            correction_row = getattr(self, f"correction{i}")
+            
+            check_flag_answer = True
+            check_flag_correction = True
+            
+            # check answer row
+            for cell in answer_row.cells:
+                if cell.correct_value in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+                    if cell.user_value != cell.correct_value:   
+                        check_flag_answer = False
+                        break
+            if check_flag_answer:
+                for cell in answer_row.cells:
+                    cell.user_value = cell.correct_value    
+            
+            # check correction row
+            for cell in correction_row.cells:
+                if cell.correct_value in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+                    if cell.user_value != cell.correct_value:   
+                        check_flag_correction = False
+                        break
+            if check_flag_correction:
+                for cell in correction_row.cells:
+                    cell.user_value = cell.correct_value
+
+
+    def get_user_answers_rows(self):
+        for row_name in self.ROW_NAMES:
+            row_values = []
+            row_correct_values = []
+            row = getattr(self, row_name)
+            for cell in row.cells:
+                row_values.append(cell.user_value)
+                row_correct_values.append(cell.correct_value)
+            row.user_answers = row_values
+            row.correct_answers = row_correct_values
+
+    def get_empty_cells(self):
+        for row_name in self.ROW_NAMES:
+            row_obj = getattr(self, row_name)
+            for cell in row_obj.cells:
+                x, y, w, h = cell.x, cell.y, cell.w, cell.h
+                cell_image = self.image[y:y+h, x:x+w]
+                volume = np.sum(cell_image)
+                if volume < 0.01 * 255 * w * h:
+                    cell.user_value = None
+
+    def extract_cell_image(self, image, cell):
+        x, y, w, h = cell.x, cell.y, cell.w, cell.h
+        return self.image[y:y+h, x:x+w]
+
+    def get_largest_contour(self, image):
+        contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if not contours:
+            return None
+        return max(contours, key=cv2.contourArea)
+
+    def should_mark_as_minus(self, image, contour):
+        if contour is None:
+            return False
+        x_contour, y_contour, w_contour, h_contour = cv2.boundingRect(contour)
+        contour_volume = cv2.contourArea(contour)
+        # image_volume = image.shape[0] * image.shape[1]
+        # ratio = contour_volume / image_volume
+        h_cell = image.shape[1]
+        return h_contour < 0.4*h_cell    
+
+    def should_mark_as_comma(self, image, contour):
+        if contour is None:
+            return False
+        x_contour, y_contour, w_contour, h_contour = cv2.boundingRect(contour)
+        contour_volume = cv2.contourArea(contour)
+        # image_volume = image.shape[0] * image.shape[1]
+        # ratio = contour_volume / image_volume
+        h_cell = image.shape[1]
+        return h_contour > 0.4*h_cell
+
+
+
+    def process_row_minuses(self, row):
+        cell0 = row.cells[0]
+        cell0_image = self.extract_cell_image(self.image, cell0)
+        cell1 = row.cells[1]
+        cell1_image = self.extract_cell_image(self.image, cell1)
+        if np.sum(cell0_image) == 0 and np.sum(cell1_image) > 0:
+            cell0.user_value = '-'
+
+
+    def process_row_commas(self, row):
+        cell0 = row.cells[0]
+        cell0_image = self.extract_cell_image(self.image, cell0)
+        cell1 = row.cells[1]
+        cell1_image = self.extract_cell_image(self.image, cell1)
+        cell2 = row.cells[2]
+        cell2_image = self.extract_cell_image(self.image, cell2)
+        cell3 = row.cells[3]
+        cell3_image = self.extract_cell_image(self.image, cell3)
+        cell4 = row.cells[4]
+        cell4_image = self.extract_cell_image(self.image, cell4)
+        cell5 = row.cells[5]
+        cell5_image = self.extract_cell_image(self.image, cell5)
+        cell6 = row.cells[6]
+        cell6_image = self.extract_cell_image(self.image, cell6)
+        cell7 = row.cells[7]
+        cell7_image = self.extract_cell_image(self.image, cell7)
+        cell8 = row.cells[8]
+        cell8_image = self.extract_cell_image(self.image, cell8)
+
+        if np.sum(cell1_image) == 0 and np.sum(cell0_image) > 0 and np.sum(cell2_image) > 0:
+            cell1.user_value = ','
+
+        if np.sum(cell2_image) == 0 and np.sum(cell1_image) > 0 and np.sum(cell3_image) > 0:
+            cell2.user_value = ','
+
+        if np.sum(cell3_image) == 0 and np.sum(cell2_image) > 0 and np.sum(cell4_image) > 0:
+            cell3.user_value = ','
+
+        if np.sum(cell4_image) == 0 and np.sum(cell3_image) > 0 and np.sum(cell5_image) > 0:
+            cell4.user_value = ','
+
+        if np.sum(cell5_image) == 0 and np.sum(cell4_image) > 0 and np.sum(cell6_image) > 0:
+            cell5.user_value = ','
+
+        if np.sum(cell6_image) == 0 and np.sum(cell5_image) > 0 and np.sum(cell7_image) > 0:
+            cell6.user_value = ','
+
+        if np.sum(cell7_image) == 0 and np.sum(cell6_image) > 0 and np.sum(cell8_image) > 0:
+            print('here 1')
+            cell7.user_value = ','
+
+
+    def get_correct_minuses(self):
+        for i in range(1, 11):
+            self.process_row_minuses(getattr(self, f"answer{i}"))
+        for i in range(1, 11):
+            self.process_row_minuses(getattr(self, f"correction{i}"))
+
+    def get_correct_commas(self):
+        for i in range(1, 11):
+            print('answer row', i)
+            self.process_row_commas(getattr(self, f"answer{i}"))
+        for i in range(1, 11):
+            print('correction row', i)
+            self.process_row_commas(getattr(self, f"correction{i}"))
+
+
+
+
 
     @property
     def answer_rows(self):

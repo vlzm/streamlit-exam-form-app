@@ -22,9 +22,10 @@ class FormRecognition:
         form.align_form(scale_factor=1.0)  # Align user image to template
         form.recalculate_cells()
         form.style_image()
-        # form.remove_cells_lines()  # Remove cells lines
-        # form.load_correct_answers(self.answers)  # Load correct answers from answers excel
-        # form.get_symbals_from_image()  # Get symbols from image
-        # form.get_rows_contour()  # Get rows contour
+        form.load_correct_answers(self.answers)  # Load correct answers from answers excel
+        form.get_user_answers_pipeline()
+
+
+
 
         return form

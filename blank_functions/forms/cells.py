@@ -15,15 +15,18 @@ class Cell:
         self.y = None
         self.w = None
         self.h = None
-        self.value = None
+        self.user_value = None
+        self.correct_value = None
         self.cell_number = None
         self.symbols = []
         self.cell_image = None
+        self.cell_pred_input = None
 
     def __repr__(self):
         return (f"Cell(row_name={self.row_name}, cell_number={self.cell_number}, "
                 f"x={self.x}, y={self.y}, w={self.w}, h={self.h}, "
-                f"value={self.value}, symbols={self.symbols})")
+                f"user_value={self.user_value}, symbols={self.symbols})")
+
 
     def detect_symbol_in_cell(self, cell_image):
         self.symbols = []
@@ -61,5 +64,6 @@ class Cell:
         self.y = cell_dict.get("y")
         self.w = cell_dict.get("w")
         self.h = cell_dict.get("h")
-        self.value = cell_dict.get("value")
+        self.user_value = cell_dict.get("user_value")
         self.cell_number = cell_dict.get("cell_number")
+

@@ -18,6 +18,7 @@ class Row:
         else:
             self.cells = [Cell(row_name) for _ in range(9)]
         self.correct_answers = []
+        self.user_answers = []
 
     def get_contour(self):
         """

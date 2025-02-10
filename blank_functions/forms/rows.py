@@ -9,8 +9,8 @@ class Row:
         self.h = None
         # Сразу создаём 10 объектов Cell
         # (каждому можно проставить cell_number = i)
-        if row_name == "subject":
-            self.cells = [Cell(row_name) for _ in range(10)]
+        if row_name == "date":
+            self.cells = [Cell(row_name) for _ in range(8)]
         elif row_name == "user_id":
             self.cells = [Cell(row_name) for _ in range(8)]
         elif row_name == "version":

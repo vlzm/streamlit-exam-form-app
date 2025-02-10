@@ -26,6 +26,4 @@ class FormRecognition:
         form.get_user_answers_pipeline()
         form.set_row_images()
 
-
-
         return form

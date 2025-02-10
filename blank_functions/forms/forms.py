@@ -5,10 +5,11 @@ import json
 from blank_functions.utils.image_processing import place_row_image_into_form, align_image_pipeline, recalculate_cell, style_image
 from blank_functions.forms.model import predict_digit
 import matplotlib.pyplot as plt
+import pickle
 class Form:
     # Определяем все названия строк, которые хотим использовать
     ROW_NAMES = (
-        ["subject", "user_id", "version"]
+        ["date", "user_id", "version"]
         + [f"answer{i}" for i in range(1, 11)]
         + [f"correction{i}" for i in range(1, 11)]
     )
@@ -195,17 +196,21 @@ class Form:
                 x, y, w, h = cell.x, cell.y, cell.w, cell.h
                 cell_image = self.image[y:y+h, x:x+w]
                 cell_image = cv2.cvtColor(cell_image, cv2.COLOR_BGR2RGB)
-                predicted_digit, cell_pred_input = predict_digit(cell_image, ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"])
+                predicted_digit, cell_pred_input = predict_digit(cell_image)
+                if predicted_digit == '1 (with a thin vertical line)':
+                    predicted_digit = '1'
+                if predicted_digit == '7 (with a flat top part)':
+                    predicted_digit = '7'
                 cell.user_value = predicted_digit
                 cell.cell_pred_input = cell_pred_input
+
     
+
 
     def get_user_answers_pipeline(self):
         self.get_user_answers()
-        self.check_digits_and_replace()
+        # self.check_digits_and_replace()
         self.get_empty_cells()
-        # plt.imshow(self.image)
-        # plt.show()
         self.get_correct_minuses()
         self.get_correct_commas()
         self.get_user_answers_rows()
@@ -358,9 +363,12 @@ class Form:
             self.process_row_commas(getattr(self, f"correction{i}"))
 
     def get_row_image(self, answer):
+        num_cells = 5
+        if answer.row_name == "date":
+            num_cells = 8
         row_images = list()
         for cell, i in zip(answer.cells, range(1, 11)):
-            if i <=5:
+            if i <=num_cells:
                 x, y, w, h = cell.x, cell.y, cell.w, cell.h
                 cell_image = self.raw_image[y:y+h, x:x+w]
                 row_images.append(cell_image)
@@ -370,10 +378,15 @@ class Form:
         return row_image
 
     def set_row_images(self):
-        for row in ["user_id", "version"]:
+        for row in ["user_id", "version", "date"]:
+            cur_row = getattr(self, row)
+            # save to pickle
+            with open(f"{row}.pkl", "wb") as f:
+                pickle.dump(cur_row, f)
             getattr(self, row).row_image = self.get_row_image(getattr(self, row))
         for j in range(1, 11):
             answer_row = getattr(self, f"answer{j}")
+
             correction_row = getattr(self, f"correction{j}")
             answer_row.row_image = self.get_row_image(answer_row)
             correction_row.row_image = self.get_row_image(correction_row)

@@ -378,36 +378,43 @@ def denoise_cells(image, cells):
 
 def detect_symbol(image, cells):
     for (x, y, w, h) in cells:
-        # print('here 1')
         img_cell = image[y:y+h, x:x+w]
-        # plt.imshow(img_cell, cmap='gray')
-        # plt.show()
-        image_inv = img_cell
-        # plt.imshow(image_inv, cmap='gray')
-        # plt.show()
-        _, thresh = cv2.threshold(image_inv, 10, 255, cv2.THRESH_BINARY)
-        # plt.imshow(thresh, cmap='gray')
-        # plt.show()
+
+        _, thresh = cv2.threshold(img_cell, 10, 255, cv2.THRESH_BINARY)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-
 
         if len(contours) > 0:
             max_contour = max(contours, key=cv2.contourArea)
             x_contour, y_contour, w_contour, h_contour = cv2.boundingRect(max_contour)
-            if h_contour > 0.4*h:
-                pad = 2
-                img_symbol = img_cell[y_contour-pad:y_contour+h_contour+pad, x_contour-pad:x_contour+w_contour+pad]
-                img_symbol = cv2.resize(img_symbol, (w, h))
 
-                image[y:y+h, x:x+w] = img_symbol
-                # print('here 2')
-                # plt.imshow(img_symbol, cmap='gray')
-                # plt.show()
+            if h_contour > 0.4 * h:
+                pad = 10
+                # Вырезаем символ
+                img_symbol = img_cell[y_contour-pad:y_contour+h_contour+pad, x_contour-pad:x_contour+w_contour+pad]
+
+                # Определяем коэффициент масштабирования
+                scale = min(w / w_contour, h / h_contour)
+
+                new_w = int(w_contour * scale)
+                new_h = int(h_contour * scale)
+
+                # Ресайзим символ с сохранением пропорций
+                img_resized = cv2.resize(img_symbol, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+                # Создаем пустое изображение (фон)
+                img_padded = np.zeros((h, w), dtype=np.uint8)
+
+                # Центрируем символ
+                x_offset = (w - new_w) // 2
+                y_offset = (h - new_h) // 2
+                img_padded[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = img_resized
+
+                # Вставляем обработанное изображение обратно
+                image[y:y+h, x:x+w] = img_padded
             else:
-                image[y:y+h, x:x+w] = 0	
+                image[y:y+h, x:x+w] = 0
         else:
-            image[y:y+h, x:x+w] = 0	
+            image[y:y+h, x:x+w] = 0
 
 
 
@@ -589,8 +596,11 @@ def style_image(aligned_image, cells, debug=True):
     # plt.show()
     
     # 8. Применяем денойзинг для улучшения качества выделения клеток
-    processed_image = denoise_cells(processed_image, cells)
+    # processed_image = denoise_cells(processed_image, cells)
+    # make white black and black white
+    processed_image = cv2.bitwise_not(processed_image)
     processed_image = detect_symbol(processed_image, cells)
+
 
     # if debug:
     #     plt.figure(figsize=(10, 20))

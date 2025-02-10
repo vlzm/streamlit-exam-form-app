@@ -56,8 +56,8 @@ if uploaded_pdf and cur_version:
                     cur_pic = get_pic_from_pdf(pdf_bytes, i, zoom=6.0)
                     form = FormRecognition(
                         image = cur_pic,
-                        template_path = 'template.jpg',
-                        json_path = 'rows_data.json',
+                        template_path = 'data/template_raw.jpg',
+                        json_path = 'data/rows_data_new_format.json',
                         answers = answers,
                         version = cur_version)
 
@@ -68,7 +68,7 @@ if uploaded_pdf and cur_version:
                     form_dict[i] = form
 
                 correct_answers = get_correct_answers(answers_bytes)
-                df_global_processed = postprocess_raw_output(df_global, correct_answers)
+                df_global_processed = postprocess_raw_output(df_global, correct_answers, cur_version)
                 df_global_answers = check_answers(df_global_processed)
                 df_global_styled = final_styling(df_global_answers)
                 df_global_styled = reorder_cols(df_global_styled)

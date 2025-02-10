@@ -15,7 +15,7 @@ clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device
 clip_model.vision_model.load_state_dict(vision_model.vision_model.state_dict())
 
 # Определяем текстовые метки для цифр от 1 до 9
-labels = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+labels = ["0", "1 (with a thin vertical line)", "2", "3", "4", "5", "6", "7 (with a horizontal stroke)", "8", "9"]
 
 # Загружаем процессор для корректной предобработки изображений и текстов
 processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -72,12 +72,14 @@ def deskew_image(image):
     deskewed = cv2.cvtColor(deskewed, cv2.COLOR_GRAY2BGR)
     return deskewed
 
-def predict_digit(image, labels):
+def predict_digit(image, labels = ["0", "1 (with a thin vertical line)", "2", "3", "4", "5", "6", "7 (with a flat top part)", "8", "9"]):
     if np.sum(image) == 0:
         return None, image
     
     kernel = np.ones((3,3), np.uint8)
     image = cv2.erode(image, kernel, iterations=1)
+
+    image = cv2.resize(image, (16, 16), interpolation=cv2.INTER_AREA)
 
     inputs = processor(text=labels, images=image, return_tensors="pt", padding=True).to(device)
 
@@ -93,5 +95,9 @@ def predict_digit(image, labels):
     # Определяем индекс метки с наибольшей вероятностью
     pred_idx = probs.argmax(dim=1).item()
     predicted_digit = labels[pred_idx]
+    # plt.figure(figsize=(3, 3))
+    # plt.imshow(image)
+    # plt.title(f'predicted digit: {predicted_digit}')
+    # plt.show()
     # print('predicted digit', predicted_digit)
     return predicted_digit, image

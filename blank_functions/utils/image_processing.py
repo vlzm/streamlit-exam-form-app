@@ -376,32 +376,97 @@ def denoise_cells(image, cells):
 
     return image
 
+# def detect_symbol(image, cells):
+#     for (x, y, w, h) in cells:
+#         img_cell = image[y:y+h, x:x+w]
+
+#         # plt.imshow(img_cell, cmap='gray')
+#         # plt.show()
+
+#         _, thresh = cv2.threshold(img_cell, 10, 255, cv2.THRESH_BINARY)
+#         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+#         if len(contours) > 0:
+#             max_contour = max(contours, key=cv2.contourArea)
+#             x_contour, y_contour, w_contour, h_contour = cv2.boundingRect(max_contour)
+
+#             if h_contour > 0.4 * h:
+#                 pad = 0
+#                 # Вырезаем символ
+#                 img_symbol = img_cell[y_contour-pad:y_contour+h_contour+pad, x_contour-pad:x_contour+w_contour+pad]
+
+#                 # рисуем контур
+#                 cv2.rectangle(img_cell, (x_contour, y_contour), (x_contour + w_contour, y_contour + h_contour), (0, 255, 0), 2)
+
+#                 # Определяем коэффициент масштабирования
+#                 scale = min(w / w_contour, h / h_contour)
+
+#                 new_w = int(w_contour * scale)
+#                 new_h = int(h_contour * scale)
+
+#                 # Ресайзим символ с сохранением пропорций
+#                 img_resized = cv2.resize(img_symbol, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+#                 # Создаем пустое изображение (фон)
+#                 img_padded = np.zeros((h, w), dtype=np.uint8)
+
+#                 # Центрируем символ
+#                 x_offset = (w - new_w) // 2
+#                 y_offset = (h - new_h) // 2
+#                 img_padded[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = img_resized
+
+#                 # Вставляем обработанное изображение обратно
+#                 image[y:y+h, x:x+w] = img_padded
+#             else:
+#                 image[y:y+h, x:x+w] = 0
+#         else:
+#             image[y:y+h, x:x+w] = 0
+
+#     return image
+
 def detect_symbol(image, cells):
     for (x, y, w, h) in cells:
         img_cell = image[y:y+h, x:x+w]
 
+        # Бинаризация
         _, thresh = cv2.threshold(img_cell, 10, 255, cv2.THRESH_BINARY)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         if len(contours) > 0:
-            max_contour = max(contours, key=cv2.contourArea)
-            x_contour, y_contour, w_contour, h_contour = cv2.boundingRect(max_contour)
+            # Создаём пустую маску
+            mask = np.zeros_like(thresh)
 
+            # Заполняем все найденные контуры белым
+            for cnt in contours:
+                if cv2.contourArea(cnt) > 100:
+                    cv2.drawContours(mask, [cnt], -1, 255, -1)
+
+            # Теперь у нас единая маска всего символа (включая разрывы)
+            # Находим boundingRect по маске
+            x_contour, y_contour, w_contour, h_contour = cv2.boundingRect(mask)
+
+            # Проверяем, что высота "символа" не слишком маленькая
             if h_contour > 0.4 * h:
-                pad = 10
-                # Вырезаем символ
-                img_symbol = img_cell[y_contour-pad:y_contour+h_contour+pad, x_contour-pad:x_contour+w_contour+pad]
+                pad = 0
+
+                # Вырезаем символ из исходной ячейки по границам
+                img_symbol = img_cell[y_contour - pad:y_contour + h_contour + pad,
+                                      x_contour - pad:x_contour + w_contour + pad]
+
+                # (необязательно) нарисуем зелёную рамку вокруг целого символа
+                cv2.rectangle(img_cell, (x_contour, y_contour),
+                              (x_contour + w_contour, y_contour + h_contour),
+                              (0, 255, 0), 2)
 
                 # Определяем коэффициент масштабирования
                 scale = min(w / w_contour, h / h_contour)
-
                 new_w = int(w_contour * scale)
                 new_h = int(h_contour * scale)
 
                 # Ресайзим символ с сохранением пропорций
                 img_resized = cv2.resize(img_symbol, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-                # Создаем пустое изображение (фон)
+                # Создаем пустое изображение (фон) нужного размера
                 img_padded = np.zeros((h, w), dtype=np.uint8)
 
                 # Центрируем символ
@@ -409,50 +474,14 @@ def detect_symbol(image, cells):
                 y_offset = (h - new_h) // 2
                 img_padded[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = img_resized
 
-                # Вставляем обработанное изображение обратно
+                # Вставляем обработанное изображение обратно в исходное
                 image[y:y+h, x:x+w] = img_padded
             else:
                 image[y:y+h, x:x+w] = 0
         else:
             image[y:y+h, x:x+w] = 0
 
-
-
-
-
     return image
-
-
-
-# def align_image_pipeline(image, template, scale_factor = 0.25):
-#     rotated = correct_image_rotation(image)
-#     # rotated = image.copy()
-
-#     aligned_image_1 = get_aligned_pic(template, rotated, scale_factor)
-#     # gray = convert_to_gray(aligned_image_1)
-#     gray = aligned_image_1
-#     processed_thresh = preprocess_threshold(gray)
-
-#     # Detect cells and draw initial bounding boxes on the gray image
-#     cells = detect_cells(gray, processed_thresh)
-
-#     # Create a color visualization image and redraw the bounding boxes
-#     processed_image = create_visualization_image(gray, cells)
-
-#     # Draw white borders for extra clarity and denoise each cell region
-#     processed_image = draw_white_borders(processed_image, cells)
-#     processed_image = denoise_cells(processed_image, cells)
-
-#     # Create a DataFrame with cell coordinates
-#     df_cells = pd.DataFrame(cells, columns=["x", "y", "w", "h"])
-
-#     plt.figure(figsize=(10, 20))
-#     plt.imshow(processed_image)
-#     plt.title("aligned image")
-#     plt.axis("off")
-#     plt.show()
-
-#     return processed_image
 
 def refine_cell_contour(aligned_image, cell_bbox, margin=10, debug=False):
     """
@@ -554,7 +583,8 @@ def align_image_pipeline(image, template, scale_factor=0.25, debug=True):
     # 2. Выравнивание изображения по шаблону
     aligned_image = get_aligned_pic(template, image, scale_factor)
     
-    rotated = correct_image_rotation(aligned_image)
+    # rotated = correct_image_rotation(aligned_image)
+    rotated = aligned_image
 
     # if debug:
     #     plt.figure(figsize=(7, 7))
@@ -581,32 +611,24 @@ def recalculate_cell(aligned_image, template_cell, margin=20, debug=False):
     return x, y, w, h
 
 def style_image(aligned_image, cells, debug=True):
-    # 6. Создаём визуализацию – переводим в цветное изображение и рисуем bounding box'ы
-    processed_image = create_visualization_image(aligned_image, cells)
-    # plt.imshow(processed_image, cmap='gray')
-    # plt.title("processed_image image")
-    # plt.axis("off")
+   
+    # plt.figure(figsize=(10, 20))
+    # plt.imshow(aligned_image, cmap='gray')  
     # plt.show()
-    
-    # 7. Рисуем дополнительные белые рамки для лучшей наглядности
     processed_image = draw_white_borders(aligned_image, cells)
+    # plt.figure(figsize=(10, 20))
     # plt.imshow(processed_image, cmap='gray')
-    # plt.title("processed_image image")
-    # plt.axis("off")
     # plt.show()
-    
-    # 8. Применяем денойзинг для улучшения качества выделения клеток
-    # processed_image = denoise_cells(processed_image, cells)
-    # make white black and black white
-    processed_image = cv2.bitwise_not(processed_image)
+    processed_image = cv2.bitwise_not(aligned_image)
+    # plt.figure(figsize=(10, 20))
+    # plt.imshow(processed_image, cmap='gray')
+    # plt.show()
     processed_image = detect_symbol(processed_image, cells)
+    # plt.figure(figsize=(10, 20))
+    # plt.imshow(processed_image, cmap='gray')
+    # plt.show()
 
 
-    # if debug:
-    #     plt.figure(figsize=(10, 20))
-    #     plt.imshow(processed_image, cmap='gray')
-    #     plt.title("styled image")
-    #     plt.axis("off")
-    #     plt.show()
+
     
     return processed_image

@@ -187,6 +187,7 @@ def get_correct_answers(correct_answers_path):
 
 def postprocess_raw_output(df_global_fin, correct_answers, version):
 
+    df_global_fin = df_global_fin.copy()
     df_global_fin['Вариант'] = version
 
     df_global_fin['Дата'] = df_global_fin['Дата'].str.upper()

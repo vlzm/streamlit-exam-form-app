@@ -20,7 +20,6 @@ class FormRecognition:
         form.load_image(self.image)  # Load user image
         form.load_template(self.template_path)  # Load template
         form.align_form(scale_factor=1.0)  # Align user image to template
-        form.recalculate_cells()
         form.style_image()
         form.load_correct_answers(self.answers)  # Load correct answers from answers excel
         form.get_user_answers_pipeline()

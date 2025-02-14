@@ -2,9 +2,8 @@ from blank_functions.forms.rows import Row
 import cv2
 import numpy as np
 import json
-from blank_functions.utils.image_processing import place_row_image_into_form, align_image_pipeline, recalculate_cell, style_image
+from blank_functions.utils.image_processing import align_image_pipeline, recalculate_cell, style_image
 from blank_functions.forms.model import predict_digit
-import matplotlib.pyplot as plt
 import pickle
 class Form:
     # Определяем все названия строк, которые хотим использовать
@@ -89,35 +88,6 @@ class Form:
                 answer_attr.cells[j].correct_value = cell_value
                 correction_attr.cells[j].correct_value = cell_value
 
-    def get_symbals_from_image(self):
-        image = self.image
-        for row_name in self.ROW_NAMES:
-            row_obj = getattr(self, row_name)
-            for cell in row_obj.cells:
-                cell.detect_symbol_in_cell(image)
-
-    def get_sybmol_row(self):
-        original_image = self.image
-        for row_name in self.ROW_NAMES:
-            row_obj = getattr(self, row_name)
-            place_row_image_into_form(row_obj, original_image)
-
-        # cv2.imwrite("modified_form.png", original_image)
-
-    def remove_cells_lines(self):
-        for row_name in self.ROW_NAMES:
-            row_obj = getattr(self, row_name)
-            for cell in row_obj.cells:
-                x, y, w, h = cell.x, cell.y, cell.w, cell.h
-                scale = 40
-                scale_2 = 15
-                scale_3 = 10
-                scale_4 = 12
-                self.image[y - scale : y + scale_3, x - scale_2 : x + w + scale_2] = 255 # нижняя горизонтальная линия
-                self.image[y + h - scale_3 : y + h + scale, x - scale_2 : x + w + scale_2] = 255 # верхняя горизонтальная лини
-                self.image[y - scale_2 : y + h + scale_2, x - scale_4 : x + scale_4] = 255 # левая вертикальная линия
-                self.image[y - scale_2 : y + h + scale_2, x + w - scale_4 : x + w + scale_4] = 255 # правая вертикальная линия
-        # cv2.imwrite("removed_cells_lines.png", self.image)
 
     def load_image(self, image):
         self.image = image
@@ -166,29 +136,6 @@ class Form:
             for cell in row_obj.cells:
                 if cell.symbols[0].symbol_image is not None:
                     cell.symbols[0].value = cell.symbols[0].get_highest_similarity()
-
-    def get_minus_lists(self):
-        for row_name in [f"answer{i}" for i in range(1, 11)]:
-            row_obj = getattr(self, row_name)
-            if row_obj.cells[0].symbols[0].symbol_image is not None:
-                symbol_img_shape = row_obj.cells[0].symbols[0].symbol_image.shape
-                if symbol_img_shape[0]/symbol_img_shape[1] < 0.75:
-                    self.answer_minus_list.append(-1)
-                else:
-                    self.answer_minus_list.append(1)
-            else:
-                self.answer_minus_list.append(1)
-        
-        for row_name in [f"correction{i}" for i in range(1, 11)]:
-            row_obj = getattr(self, row_name)
-            if row_obj.cells[0].symbols[0].symbol_image is not None:
-                symbol_img_shape = row_obj.cells[0].symbols[0].symbol_image.shape
-                if symbol_img_shape[0]/symbol_img_shape[1] < 0.75:
-                    self.correction_minus_list.append(-1)
-                else:
-                    self.correction_minus_list.append(1)
-            else:
-                self.correction_minus_list.append(1)
 
     def get_user_answers(self):
         for row_name in self.ROW_NAMES:
@@ -271,33 +218,6 @@ class Form:
         x, y, w, h = cell.x, cell.y, cell.w, cell.h
         return self.image[y:y+h, x:x+w]
 
-    def get_largest_contour(self, image):
-        contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if not contours:
-            return None
-        return max(contours, key=cv2.contourArea)
-
-    def should_mark_as_minus(self, image, contour):
-        if contour is None:
-            return False
-        x_contour, y_contour, w_contour, h_contour = cv2.boundingRect(contour)
-        contour_volume = cv2.contourArea(contour)
-        # image_volume = image.shape[0] * image.shape[1]
-        # ratio = contour_volume / image_volume
-        h_cell = image.shape[1]
-        return h_contour < 0.4*h_cell    
-
-    def should_mark_as_comma(self, image, contour):
-        if contour is None:
-            return False
-        x_contour, y_contour, w_contour, h_contour = cv2.boundingRect(contour)
-        contour_volume = cv2.contourArea(contour)
-        # image_volume = image.shape[0] * image.shape[1]
-        # ratio = contour_volume / image_volume
-        h_cell = image.shape[1]
-        return h_contour > 0.4*h_cell
-
-
 
     def process_row_minuses(self, row):
         cell0 = row.cells[0]
@@ -370,7 +290,7 @@ class Form:
         for cell, i in zip(answer.cells, range(1, 11)):
             if i <=num_cells:
                 x, y, w, h = cell.x, cell.y, cell.w, cell.h
-                cell_image = self.raw_image[y:y+h, x:x+w]
+                cell_image = self.image[y:y+h, x:x+w]
                 row_images.append(cell_image)
         # объединить изображения в одно
         row_image = np.concatenate(row_images, axis=1)

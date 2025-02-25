@@ -290,7 +290,7 @@ class Form:
         for cell, i in zip(answer.cells, range(1, 11)):
             if i <=num_cells:
                 x, y, w, h = cell.x, cell.y, cell.w, cell.h
-                cell_image = self.image[y:y+h, x:x+w]
+                cell_image = self.raw_image[y:y+h, x:x+w]
                 row_images.append(cell_image)
         # объединить изображения в одно
         row_image = np.concatenate(row_images, axis=1)

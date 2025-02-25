@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from skimage import filters
+from skimage.color import rgb2gray
 
 def rebuild_row_image(row_obj, original_image, symbol_spacing=0):
     """
@@ -427,6 +429,12 @@ def denoise_cells(image, cells):
 def detect_symbol(image, cells):
     for (x, y, w, h) in cells:
         img_cell = image[y:y+h, x:x+w]
+        # threshold = filters.threshold_otsu(img_cell)  # Автоматический порог
+        # binary = img_cell > threshold  # Делаем маску
+        # binary_cv2 = (binary * 255).astype(np.uint8)
+        # img_cell = binary_cv2
+
+
 
         # Бинаризация
         _, thresh = cv2.threshold(img_cell, 10, 255, cv2.THRESH_BINARY)
@@ -438,21 +446,27 @@ def detect_symbol(image, cells):
 
             # Заполняем все найденные контуры белым
             for cnt in contours:
-                if cv2.contourArea(cnt) > 100:
+                x_cnt, y_cnt, w_cnt, h_cnt = cv2.boundingRect(cnt)
+                if w_cnt > 10 and h_cnt > 10:
+                    # print(cv2.contourArea(cnt))
                     cv2.drawContours(mask, [cnt], -1, 255, -1)
+
+                    # plt.figure(figsize=(1, 1))
+                    # plt.imshow(mask, cmap='gray')
+                    # plt.show()
 
             # Теперь у нас единая маска всего символа (включая разрывы)
             # Находим boundingRect по маске
             x_contour, y_contour, w_contour, h_contour = cv2.boundingRect(mask)
 
             # Проверяем, что высота "символа" не слишком маленькая
-            if h_contour > 0.4 * h:
+            if h_contour > 0.4 * h and y_contour < 0.4 * h:
                 pad = 0
 
                 # Вырезаем символ из исходной ячейки по границам
                 img_symbol = img_cell[y_contour - pad:y_contour + h_contour + pad,
                                       x_contour - pad:x_contour + w_contour + pad]
-
+                
                 # (необязательно) нарисуем зелёную рамку вокруг целого символа
                 cv2.rectangle(img_cell, (x_contour, y_contour),
                               (x_contour + w_contour, y_contour + h_contour),

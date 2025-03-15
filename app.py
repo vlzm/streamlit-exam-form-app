@@ -11,7 +11,9 @@ import json
 import numpy as np
 import traceback
 from typing import Optional
-
+import time
+import datetime
+import os
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -29,6 +31,10 @@ st.write("Загрузите PDF файл, нажмите 'Распознать'
 cur_version = st.text_input("Введите номер варианта", type="default")
 uploaded_pdf = st.file_uploader("Загрузите PDF файл", type=["pdf"])
 uploaded_answers = st.file_uploader("Загрузите Excel файл с правильными ответами", type=["xlsx"])
+
+SAVE_FOLDER = "saved_excels"
+if not os.path.exists(SAVE_FOLDER):
+    os.makedirs(SAVE_FOLDER)
 
 if uploaded_pdf and cur_version:
     if st.button("Распознать"):
@@ -76,15 +82,34 @@ if uploaded_pdf and cur_version:
               
 
                 # Добавление имени файла
+                date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                 st.success("Распознавание завершено!")
                 st.download_button(
                     label="Скачать Excel файл",
                     data=excel_data,
-                    file_name="Formatted_Data.xlsx",
+                    file_name=f"Results_variant_{cur_version}_{date_time}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+                # сохраняем файл в папку
+                with open(f"saved_excels/Results_variant_{cur_version}_{date_time}.xlsx", "wb") as f:
+                    f.write(excel_data.getvalue())
 
         except Exception as e:
             st.error("Произошла ошибка! Подробности записаны в консоль.")
             # Лог ошибки в терминал
             traceback.print_exc()
+
+# Раздел истории сохранённых файлов
+st.sidebar.header("История сохранённых Excel файлов")
+saved_files = os.listdir(SAVE_FOLDER)
+for saved_file in saved_files:
+    full_path = os.path.join(SAVE_FOLDER, saved_file)
+    with open(full_path, "rb") as f:
+        file_bytes = f.read()
+    st.sidebar.download_button(
+        label=saved_file,
+        data=file_bytes,
+        file_name=saved_file,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        key=saved_file  # уникальный ключ для каждой кнопки
+    )

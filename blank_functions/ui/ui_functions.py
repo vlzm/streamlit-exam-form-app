@@ -15,6 +15,8 @@ import pandas as pd
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Alignment, Border, Side, Font
+from xlsxwriter.utility import xl_rowcol_to_cell
+
 import io
 from blank_functions.forms.form_recognition import FormRecognition
 
@@ -304,13 +306,6 @@ def prepare_cur_dict(form_dict):
     for key in ["date", "user_id", "version"] + [f"answer{i}" for i in range(1, 11)] + [f"correction{i}" for i in range(1, 11)]:
         cur_dict[key] = "".join([x for x in cur_dict[key] if x is not None])
 
-
-    # for key in [f"answer{i}" for i in range(1, 11)] + [f"correction{i}" for i in range(1, 11)]:
-    #     if cur_dict[key] != '':
-    #         cur_dict[key] = str(float(cur_dict[key].replace(',', '.')))
-
-    # cur_dict['date'] = 'МАТЕМАТИКА'
-
     return cur_dict
 
 def check_answers(total_df):
@@ -327,15 +322,6 @@ def check_answers(total_df):
     9: 1,
     10: 1.5
     }
-    # for i in range(1, 11):
-    #     right_answer_v2 = total_df[f'Правильный ответ {i}'].apply(lambda x: x.replace('.', '1') + '.0')
-    #     print(right_answer_v2)
-    #     print(total_df[f'Задание {i}'])
-    #     print(total_df[f'Замена {i}'])
-    #     if right_answer_v2.values[0] == total_df[f'Задание {i}'].values[0]:
-    #         total_df[f'Задание {i}'] = total_df[f'Правильный ответ {i}']
-    #     if right_answer_v2.values[0] == total_df[f'Замена {i}'].values[0]:
-    #         total_df[f'Замена {i}'] = total_df[f'Правильный ответ {i}']
 
     for i in range(1, 11):
         total_df[f'Начисленные баллы {i}'] = ((total_df[f'Правильный ответ {i}'] == total_df[f'Задание {i}']) | (total_df[f'Правильный ответ {i}'] == total_df[f'Замена {i}'])).replace(True, 'Верно').replace(False, 'Неверно').apply(lambda x: scores_dict[i] if x == 'Верно' else 0)
@@ -595,6 +581,17 @@ def save_to_excel(df_global_styled, form_dict):
                     "some_name.png", 
                     {'image_data': img_data}
                 )
+            
+            excel_col_start = df_global_styled.columns.get_loc('Начисленные баллы 1')
+            excel_col_end = df_global_styled.columns.get_loc('Начисленные баллы 10')
+            # add sum of all columns from excel_col_start to excel_col_end as excel formula
+            # Определяем адреса ячеек начала и конца суммы
+            cell_start = xl_rowcol_to_cell(excel_row, excel_col_start)
+            cell_end = xl_rowcol_to_cell(excel_row, excel_col_end)
+
+            # Формируем корректную формулу
+            formula = f"=SUM({cell_start}:{cell_end})"
+            worksheet.write_formula(excel_row, excel_col_end + 1, formula)
 
 
         writer.close()

@@ -3,7 +3,7 @@ python/
 __pycache__/
 *.egg-info/
 *.pkl
-saved_excels/*
+saved_excels/*.xlsx
 .ipynb_checkpoints/
 dist/
 build/

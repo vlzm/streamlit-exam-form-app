@@ -1,4 +1,11 @@
 .venv/
+python/
 __pycache__/
-.devcontainer/devcontainer.json
-blank_functions.egg-info/
+*.egg-info/
+*.pkl
+saved_excels/
+.ipynb_checkpoints/
+dist/
+build/
+.devcontainer/
+.env

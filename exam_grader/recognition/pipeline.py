@@ -33,7 +33,7 @@ class FormRecognition:
         self,
         mode: str = "clip",
         api_key: str | None = None,
-        openai_model: str = "gpt-4o",
+        openai_model: str = "gpt-5.2",
     ) -> Form:
         """
         Execute the recognition pipeline and return the processed Form.
@@ -41,7 +41,7 @@ class FormRecognition:
         Args:
             mode: "clip" for local CLIP-based OCR, "openai" for OpenAI Vision API.
             api_key: OpenAI API key (required when mode="openai").
-            openai_model: OpenAI model name (default: "gpt-4o").
+            openai_model: OpenAI model name (default: "gpt-5.2").
         """
         if mode == "openai":
             return self._run_openai_pipeline(api_key, openai_model)

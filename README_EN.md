@@ -9,7 +9,7 @@ Automated exam answer sheet recognition and grading system. Upload scanned PDF f
 1. **Upload** — a multi-page PDF of scanned answer sheets and an Excel file with correct answers.
 2. **Choose recognition mode:**
    - **CLIP (local)** — each cell is recognized separately by a CLIP model running locally. No API key required.
-   - **OpenAI Vision API** — the full page image is sent to GPT-4o. Requires an OpenAI API key.
+   - **OpenAI Vision API** — the full page image is sent to gpt-5.2. Requires an OpenAI API key.
 3. **Alignment** — each page is aligned to a reference template using SIFT and homography.
 4. **Recognition** — answers are extracted by the chosen method.
 5. **Grading** — recognized answers are compared to the key; scores use configurable weights.
@@ -62,7 +62,7 @@ streamlit-exam-form-app/
 | PDF | PyMuPDF (fitz) | High-resolution PDF to image conversion |
 | Image processing | OpenCV, scikit-image | Alignment, thresholding, contour detection |
 | Recognition (local) | CLIP (transformers, PyTorch) | Cell-by-cell handwritten digit recognition |
-| Recognition (cloud) | OpenAI Vision API (optional) | Whole-page recognition via GPT-4o |
+| Recognition (cloud) | OpenAI Vision API (optional) | Whole-page recognition via gpt-5.2 |
 | Data | pandas | Answer comparison and scoring |
 | Excel export | xlsxwriter, openpyxl | Formatted output with embedded images |
 

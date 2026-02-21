@@ -55,7 +55,7 @@ Two recognition paths share the same grading and export pipeline:
 PDF Upload → Page Images → Align ─┤  Empty/Minus/Comma detection       ├→ Grading → Excel
                                   │                                    │
                                   ├─── OpenAI Mode ────────────────────┤
-                                  │  Send image → GPT-4o → Parse JSON  │
+                                  │  Send image → gpt-5.2 → Parse JSON  │
                                   └────────────────────────────────────┘
 ```
 
@@ -70,7 +70,7 @@ PDF Upload → Page Images → Align ─┤  Empty/Minus/Comma detection       �
 | Image analysis | scikit-image | Otsu thresholding for digit binarization |
 | ML framework | PyTorch | CLIP model inference |
 | ML model | CLIP ViT-B/32 (MNIST fine-tuned) | Handwritten digit embedding comparison (local) |
-| Cloud OCR | OpenAI Vision API (optional) | Whole-page recognition via GPT-4o |
+| Cloud OCR | OpenAI Vision API (optional) | Whole-page recognition via gpt-5.2 |
 | Data | pandas | DataFrame operations, answer merging |
 | Validation | Pydantic | Data model validation |
 | Excel output | xlsxwriter | Excel with embedded images and formulas |
@@ -212,7 +212,7 @@ Form
 1. Load coordinates, image, and template (same as CLIP)
 2. Align image to template
 3. Load correct answers
-4. Send full aligned page image to OpenAI Vision API (GPT-4o)
+4. Send full aligned page image to OpenAI Vision API (gpt-5.2)
 5. Parse structured JSON response and populate `Form` via `set_answers_from_dict()`
 6. Generate row preview images
 
@@ -226,7 +226,7 @@ Downstream grading and export pipeline is identical for both modes.
 - Returns digit label with highest cosine similarity
 
 **`openai_recognizer`** (OpenAI only):
-- Encodes page image as base64 and sends to GPT-4o with structured prompt
+- Encodes page image as base64 and sends to gpt-5.2 with structured prompt
 - Expects JSON with keys: `date`, `user_id`, `version`, `answer_1`–`answer_10`, `correction_1`–`correction_10`
 - Normalizes response to internal row names (e.g. `answer_1` → `answer1`, strips dots from dates)
 - Lazy-imports `openai` — only required when OpenAI mode is selected

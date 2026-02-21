@@ -95,6 +95,33 @@ pip install -e .
 pip install -e ".[openai]"
 ```
 
+## Запуск в Docker
+
+**Требования:** установленный [Docker](https://www.docker.com/get-started).
+
+Соберите образ и запустите контейнер:
+
+```bash
+docker build -t exam-grader .
+docker run -p 8501:8501 exam-grader
+```
+
+Приложение откроется по адресу **http://localhost:8501**.
+
+Чтобы сохранять сгенерированные Excel-файлы на хост-машине, примонтируйте каталог:
+
+```bash
+docker run -p 8501:8501 -v "%CD%\saved_excels:/app/saved_excels" exam-grader
+```
+
+На Linux/macOS используйте `$(pwd)/saved_excels` вместо `%CD%\saved_excels`.
+
+Для режима OpenAI API ключ можно передать переменной окружения:
+
+```bash
+docker run -p 8501:8501 -e OPENAI_API_KEY=sk-... exam-grader
+```
+
 ## Использование
 
 ```bash

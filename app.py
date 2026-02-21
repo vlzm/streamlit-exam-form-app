@@ -20,6 +20,16 @@ from exam_grader import (
 )
 from exam_grader.config import CELL_COORDS_PATH, SAVED_EXCELS_DIR, TEMPLATE_PATH
 
+def _make_error_row(page_num: int) -> pd.DataFrame:
+    """Create a placeholder row for a page that failed processing."""
+    from exam_grader.config import COLUMN_DISPLAY_NAMES, NUM_QUESTIONS
+
+    columns = list(COLUMN_DISPLAY_NAMES.values())
+    data = {col: "" for col in columns}
+    data["Дата"] = f"ОШИБКА (стр. {page_num})"
+    return pd.DataFrame(data, index=[0])
+
+
 st.title("Распознавание экзаменационных бланков")
 st.write("Загрузите PDF файл, нажмите 'Распознать', и получите результат в формате Excel.")
 
@@ -39,6 +49,9 @@ uploaded_pdf = st.file_uploader("Загрузите PDF файл", type=["pdf"])
 uploaded_answers = st.file_uploader(
     "Загрузите Excel файл с правильными ответами", type=["xlsx"]
 )
+
+# Получить имя загруженного PDF-файла (None, если не выбран)
+pdf_filename = uploaded_pdf.name if uploaded_pdf is not None else None
 
 SAVED_EXCELS_DIR.mkdir(exist_ok=True)
 
@@ -65,28 +78,35 @@ if uploaded_pdf and cur_version:
                 df_global = pd.DataFrame()
                 form_dict = {}
 
+                failed_pages: list[int] = []
                 progress = st.progress(0, text="Распознавание...")
                 for i in range(num_pages):
                     progress.progress(
                         (i + 1) / num_pages,
                         text=f"Страница {i + 1} из {num_pages}...",
                     )
-                    cur_pic = get_page_image_from_pdf(pdf_bytes, i)
-                    recognition = FormRecognition(
-                        image=cur_pic,
-                        template_path=str(TEMPLATE_PATH),
-                        json_path=str(CELL_COORDS_PATH),
-                        answers=answers,
-                        version=version,
-                    )
-                    form = recognition.run_pipeline(
-                        mode=mode,
-                        api_key=openai_api_key if use_openai else None,
-                    )
-                    cur_dict = prepare_form_dict(form)
-                    df_current = transform_to_dataframe(cur_dict)
-                    df_global = pd.concat([df_global, df_current]).reset_index(drop=True)
-                    form_dict[i] = form
+                    try:
+                        cur_pic = get_page_image_from_pdf(pdf_bytes, i)
+                        recognition = FormRecognition(
+                            image=cur_pic,
+                            template_path=str(TEMPLATE_PATH),
+                            json_path=str(CELL_COORDS_PATH),
+                            answers=answers,
+                            version=version,
+                        )
+                        form = recognition.run_pipeline(
+                            mode=mode,
+                            api_key=openai_api_key if use_openai else None,
+                        )
+                        cur_dict = prepare_form_dict(form)
+                        df_current = transform_to_dataframe(cur_dict)
+                        df_global = pd.concat([df_global, df_current]).reset_index(drop=True)
+                        form_dict[i] = form
+                    except Exception:
+                        traceback.print_exc()
+                        failed_pages.append(i + 1)
+                        error_row = _make_error_row(i + 1)
+                        df_global = pd.concat([df_global, error_row]).reset_index(drop=True)
 
                 correct_answers = get_correct_answers(answers_bytes)
                 df_processed = postprocess_raw_output(df_global, correct_answers, version)
@@ -96,9 +116,17 @@ if uploaded_pdf and cur_version:
                 excel_data = save_to_excel(df_styled, form_dict)
 
                 date_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                filename = f"Results_variant_{version}_{date_time}.xlsx"
+                filename = f"{pdf_filename}_results_{date_time}.xlsx"
 
-                st.success("Распознавание завершено!")
+                if failed_pages:
+                    pages_str = ", ".join(str(p) for p in failed_pages)
+                    st.warning(
+                        f"Распознавание завершено с ошибками. "
+                        f"Не удалось обработать страницы: {pages_str}. "
+                        f"Они отмечены как «ОШИБКА» в Excel."
+                    )
+                else:
+                    st.success("Распознавание завершено!")
                 st.download_button(
                     label="Скачать Excel файл",
                     data=excel_data,

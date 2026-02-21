@@ -95,6 +95,33 @@ To enable OpenAI Vision API (optional):
 pip install -e ".[openai]"
 ```
 
+## Running with Docker
+
+**Requirements:** [Docker](https://www.docker.com/get-started) installed.
+
+Build the image and run the container:
+
+```bash
+docker build -t exam-grader .
+docker run -p 8501:8501 exam-grader
+```
+
+The app will be available at **http://localhost:8501**.
+
+To persist generated Excel files on the host, mount the output directory:
+
+```bash
+docker run -p 8501:8501 -v "%CD%\saved_excels:/app/saved_excels" exam-grader
+```
+
+On Linux/macOS use `$(pwd)/saved_excels` instead of `%CD%\saved_excels`.
+
+To pass the OpenAI API key when using OpenAI mode:
+
+```bash
+docker run -p 8501:8501 -e OPENAI_API_KEY=sk-... exam-grader
+```
+
 ## Usage
 
 ```bash

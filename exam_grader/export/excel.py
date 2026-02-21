@@ -81,8 +81,12 @@ def save_to_excel(df: pd.DataFrame, form_dict: dict[int, Form]) -> io.BytesIO:
         worksheet = writer.sheets["Sheet1"]
 
         for row_idx in range(len(df)):
-            form = form_dict[row_idx]
             excel_row = row_idx + 1
+
+            if row_idx not in form_dict:
+                continue
+
+            form = form_dict[row_idx]
 
             _insert_row_image(worksheet, df, excel_row, "Картинка Дата", form.rows["date"])
             _insert_row_image(

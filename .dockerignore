@@ -1,0 +1,13 @@
+.venv/
+python/
+__pycache__/
+*.egg-info/
+*.pkl
+.ipynb_checkpoints/
+dist/
+build/
+.devcontainer/
+.env
+.git/
+notebooks/
+*.xlsx

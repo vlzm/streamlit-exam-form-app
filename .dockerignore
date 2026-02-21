@@ -3,9 +3,11 @@ python/
 __pycache__/
 *.egg-info/
 *.pkl
-saved_excels/*.xlsx
 .ipynb_checkpoints/
 dist/
 build/
 .devcontainer/
 .env
+.git/
+notebooks/
+*.xlsx

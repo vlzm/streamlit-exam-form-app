@@ -4,8 +4,9 @@ pandas
 numpy
 opencv-python-headless
 Pillow
-openai
 pydantic
 openpyxl
-matplotlib
 scikit-image
+transformers
+torch
+xlsxwriter
